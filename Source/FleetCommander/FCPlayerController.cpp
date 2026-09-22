@@ -2,6 +2,8 @@
 #include "FCGameMode.h"
 #include "FCWorld.h"
 #include "FCPawn.h"
+#include "FCHUD.h"
+#include "FCOperator.h"
 #include "FCCatalog.h"
 #include "Camera/CameraComponent.h"
 #include "Components/InputComponent.h"
@@ -70,6 +72,7 @@ void AFCPlayerController::SetupInputComponent()
 	InputComponent->BindAction(TEXT("Pilot"), IE_Pressed, this, &AFCPlayerController::OnPilot);
 	InputComponent->BindAction(TEXT("LeavePilot"), IE_Pressed, this, &AFCPlayerController::OnLeave);
 	InputComponent->BindAction(TEXT("ShowFleet"), IE_Pressed, this, &AFCPlayerController::OnShow);
+	InputComponent->BindAction(TEXT("Walk"), IE_Pressed, this, &AFCPlayerController::OnWalk);
 }
 
 void AFCPlayerController::PlayerTick(float DeltaTime)
@@ -91,6 +94,7 @@ void AFCPlayerController::PlayerTick(float DeltaTime)
 		W->ApplyPilotInput(MoveInput, Look, bBoost, Dt);
 	}
 	ApplyCamera(Dt);
+	SyncWalker(Dt);
 	MoveInput.X = 0.f;
 	MoveInput.Y = 0.f;
 }
@@ -148,6 +152,15 @@ void AFCPlayerController::ApplyCamera(float Dt)
 			DesiredRot = (Focus - Desired).Rotation();
 			break;
 		case EFCCamera::Ground:
+			if (const AFCGameMode* GM = GetWorld()->GetAuthGameMode<AFCGameMode>())
+			{
+				if (AFCOperator* Op = GM->PlayerWalker())
+				{
+					Desired = Op->CameraLocation();
+					DesiredRot = Op->CameraRotation();
+					break;
+				}
+			}
 			Desired = FVector(Focus.X, Focus.Y, 170.f) - FVector(400.f, 0.f, 0.f);
 			DesiredRot = (Focus - Desired).Rotation();
 			break;
@@ -177,7 +190,7 @@ void AFCPlayerController::OnMoveForward(float V)
 {
 	AFCWorld* W = Sim();
 	if (!W || FMath::Abs(V) < 0.01f) return;
-	if (W->Controlled >= 0) MoveInput.X = V;
+	if (W->Controlled >= 0 || W->CameraMode == EFCCamera::Ground) MoveInput.X = V;
 	else
 	{
 		const FRotator Yaw(0.f, OrbitYaw, 0.f);
@@ -188,7 +201,7 @@ void AFCPlayerController::OnMoveRight(float V)
 {
 	AFCWorld* W = Sim();
 	if (!W || FMath::Abs(V) < 0.01f) return;
-	if (W->Controlled >= 0) MoveInput.Y = V;
+	if (W->Controlled >= 0 || W->CameraMode == EFCCamera::Ground) MoveInput.Y = V;
 	else
 	{
 		const FRotator Yaw(0.f, OrbitYaw, 0.f);
@@ -201,7 +214,17 @@ void AFCPlayerController::OnMoveUp(float V)
 }
 void AFCPlayerController::OnLookX(float V)
 {
-	if (bLookHeld && Sim() && Sim()->Controlled < 0) OrbitYaw += V;
+	AFCWorld* W = Sim();
+	if (!bLookHeld || !W || W->Controlled >= 0) return;
+	if (W->CameraMode == EFCCamera::Ground)
+	{
+		if (AFCGameMode* GM = GetWorld()->GetAuthGameMode<AFCGameMode>())
+		{
+			if (AFCOperator* Op = GM->PlayerWalker()) Op->Yaw += V * 1.8f;
+		}
+		return;
+	}
+	OrbitYaw += V;
 }
 void AFCPlayerController::OnLookY(float V)
 {
@@ -220,6 +243,11 @@ void AFCPlayerController::OnFire()
 {
 	AFCWorld* W = Sim();
 	if (!W) return;
+	if (AFCHUD* Hud = Cast<AFCHUD>(GetHUD()))
+	{
+		float MX = 0.f, MY = 0.f;
+		if (GetMousePosition(MX, MY) && Hud->TryClick(MX, MY)) return;
+	}
 	if (W->Controlled >= 0)
 	{
 		W->FireControlled();
@@ -252,5 +280,39 @@ void AFCPlayerController::OnArena() { if (AFCWorld* W = Sim()) W->StartArena(12)
 void AFCPlayerController::OnJoinBlue() { if (AFCWorld* W = Sim()) { W->JoinTeam(0); W->CameraMode = EFCCamera::Shoulder; } }
 void AFCPlayerController::OnJoinRed() { if (AFCWorld* W = Sim()) { W->JoinTeam(1); W->CameraMode = EFCCamera::Shoulder; } }
 void AFCPlayerController::OnPilot() { if (AFCWorld* W = Sim()) { W->PilotSelected(); W->CameraMode = EFCCamera::Shoulder; } }
-void AFCPlayerController::OnLeave() { if (AFCWorld* W = Sim()) W->LeavePilot(); }
+void AFCPlayerController::OnLeave()
+{
+	AFCWorld* W = Sim();
+	if (!W) return;
+	if (W->Controlled >= 0) W->LeavePilot();
+	else if (W->CameraMode == EFCCamera::Ground) W->CameraMode = EFCCamera::Orbit;
+}
 void AFCPlayerController::OnShow() { if (AFCWorld* W = Sim()) W->ReturnToShow(); }
+void AFCPlayerController::OnWalk()
+{
+	AFCWorld* W = Sim();
+	if (!W) return;
+	W->LeavePilot();
+	W->CameraMode = EFCCamera::Ground;
+	W->LastEvent = TEXT("Walk the GRIDRUNNER compound");
+	if (AFCGameMode* GM = GetWorld()->GetAuthGameMode<AFCGameMode>())
+	{
+		if (AFCOperator* Op = GM->PlayerWalker()) Op->SetControlled(true);
+	}
+}
+void AFCPlayerController::SyncWalker(float Dt)
+{
+	(void)Dt;
+	AFCWorld* W = Sim();
+	AFCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AFCGameMode>() : nullptr;
+	if (!W || !GM) return;
+	const bool bWalk = W->CameraMode == EFCCamera::Ground && W->Controlled < 0;
+	for (int32 I = 0; I < GM->Walkers.Num(); ++I)
+	{
+		if (AFCOperator* Op = GM->Walkers[I].Get())
+		{
+			Op->SetControlled(bWalk && I == 0);
+			if (bWalk && I == 0) Op->SetPlayerMove(MoveInput, 0.f);
+		}
+	}
+}

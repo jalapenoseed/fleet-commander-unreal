@@ -4,6 +4,7 @@
 #include "Dom/JsonValue.h"
 #include "Engine/EngineTypes.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/Texture.h"
 #include "Engine/Texture2D.h"
 #include "ImageUtils.h"
 #include "Logging/LogMacros.h"
@@ -21,7 +22,7 @@
 #include "Serialization/MemoryReader.h"
 #include "StaticMeshAttributes.h"
 #include "Templates/SharedPointer.h"
-#include "UObject/Object.h"
+#include "UObject/Package.h"
 #include "UObject/UObjectGlobals.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFCAssets, Log, All);
@@ -62,13 +63,194 @@ static UMaterialInterface* BaseMat()
 	return UMaterial::GetDefaultMaterial(MD_Surface);
 }
 
+UMaterialInterface* FFCAssetLoader::FleetMaster()
+{
+	if (UMaterialInterface* Pbr = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Fleet/M_FleetPBR.M_FleetPBR")))
+	{
+		return Pbr;
+	}
+	return BaseMat();
+}
+
+static void Tint(UMaterialInstanceDynamic* Mid, const FLinearColor& Color)
+{
+	if (!Mid) return;
+	Mid->SetVectorParameterValue(TEXT("Color"), Color);
+	Mid->SetVectorParameterValue(TEXT("BaseColor"), Color);
+}
+
 UTexture2D* FFCAssetLoader::LoadPng(const FString& AbsPath, UObject* Outer)
 {
+	(void)Outer;
 	if (!FPaths::FileExists(AbsPath))
 	{
 		return nullptr;
 	}
 	return FImageUtils::ImportFileAsTexture2D(AbsPath);
+}
+
+static UTexture2D* CachedTex(const FString& Rel, bool bNormal, bool bLinear)
+{
+	static TMap<FString, TObjectPtr<UTexture2D>> Cache;
+	if (TObjectPtr<UTexture2D>* Found = Cache.Find(Rel))
+	{
+		return Found->Get();
+	}
+	UTexture2D* Tex = FFCAssetLoader::LoadPng(FFCAssetLoader::RootDir() / Rel, GetTransientPackage());
+	if (Tex)
+	{
+		Tex->SRGB = !bLinear && !bNormal;
+		if (bNormal)
+		{
+			Tex->CompressionSettings = TC_Normalmap;
+		}
+		else if (bLinear)
+		{
+			Tex->SRGB = false;
+		}
+		Tex->UpdateResource();
+		Cache.Add(Rel, Tex);
+	}
+	return Tex;
+}
+
+static void BindMaps(UMaterialInstanceDynamic* Mid, const FString& AlbedoStem, const FString& MapStem, float Metallic, float Smooth, float Glow)
+{
+	if (!Mid) return;
+	auto Albedo = [&](const FString& Stem) -> UTexture2D*
+	{
+		return CachedTex(FString::Printf(TEXT("DroneTextures/GR_%s_albedo.png"), *Stem), false, false);
+	};
+	auto Map = [&](const TCHAR* Suffix, bool bNormal) -> UTexture2D*
+	{
+		return CachedTex(FString::Printf(TEXT("DroneTextures/GR_%s_%s.png"), *MapStem, Suffix), bNormal, !bNormal);
+	};
+	if (UTexture2D* A = Albedo(AlbedoStem)) Mid->SetTextureParameterValue(TEXT("Albedo"), A);
+	if (UTexture2D* N = Map(TEXT("normal"), true)) Mid->SetTextureParameterValue(TEXT("Normal"), N);
+	if (UTexture2D* R = Map(TEXT("rough"), false))
+	{
+		Mid->SetTextureParameterValue(TEXT("Roughness"), R);
+		Mid->SetScalarParameterValue(TEXT("RoughnessMul"), 1.f);
+	}
+	else
+	{
+		Mid->SetScalarParameterValue(TEXT("RoughnessMul"), 1.f - Smooth);
+	}
+	if (UTexture2D* M = Map(TEXT("metal"), false))
+	{
+		Mid->SetTextureParameterValue(TEXT("Metallic"), M);
+		Mid->SetScalarParameterValue(TEXT("MetallicMul"), 1.f);
+	}
+	else
+	{
+		Mid->SetScalarParameterValue(TEXT("MetallicMul"), Metallic);
+	}
+	if (UTexture2D* O = Map(TEXT("ao"), false)) Mid->SetTextureParameterValue(TEXT("AO"), O);
+	Mid->SetScalarParameterValue(TEXT("Emissive"), Glow);
+	Mid->SetScalarParameterValue(TEXT("Metallic"), Metallic);
+	Mid->SetScalarParameterValue(TEXT("Roughness"), 1.f - Smooth);
+}
+
+UMaterialInstanceDynamic* FFCAssetLoader::MakeDroneSurface(UObject* Outer, const FString& SurfaceName)
+{
+	UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(FleetMaster(), Outer);
+	FLinearColor Color(1.f, 1.f, 1.f);
+	float Metallic = 0.08f;
+	float Smooth = 0.36f;
+	float Glow = 0.f;
+	FString Albedo = TEXT("01_painted_alum");
+	FString Maps = TEXT("01_painted_alum");
+	if (SurfaceName.StartsWith(TEXT("Panel")) || SurfaceName.StartsWith(TEXT("OffWhite")))
+	{
+		Albedo = TEXT("paint_offwhite");
+		Maps = TEXT("01_painted_alum");
+		Color = FLinearColor(0.92f, 0.93f, 0.90f);
+	}
+	else if (SurfaceName.StartsWith(TEXT("Accent")))
+	{
+		Albedo = TEXT("paint_ochre");
+		Maps = TEXT("01_painted_alum");
+	}
+	else if (SurfaceName.StartsWith(TEXT("Rubber")))
+	{
+		Albedo = Maps = TEXT("05_rubber");
+		Metallic = 0.08f;
+		Smooth = 0.12f;
+	}
+	else if (SurfaceName.StartsWith(TEXT("Anodized")) || SurfaceName.StartsWith(TEXT("Prop")))
+	{
+		Albedo = Maps = TEXT("03_black_anodized");
+		Metallic = 0.50f;
+		Smooth = 0.40f;
+	}
+	else if (SurfaceName.StartsWith(TEXT("Galvanized")))
+	{
+		Albedo = Maps = TEXT("07_galvanized");
+		Metallic = 0.80f;
+		Smooth = 0.36f;
+	}
+	else if (SurfaceName.StartsWith(TEXT("Metal")))
+	{
+		Albedo = Maps = TEXT("02_machined_alum");
+		Metallic = 0.80f;
+		Smooth = 0.65f;
+	}
+	else if (SurfaceName.StartsWith(TEXT("Carbon")))
+	{
+		Albedo = Maps = TEXT("04_weave");
+		Metallic = 0.08f;
+	}
+	else if (SurfaceName.StartsWith(TEXT("Copper")))
+	{
+		Albedo = Maps = TEXT("06_aged_copper");
+		Metallic = 0.80f;
+	}
+	else if (SurfaceName.StartsWith(TEXT("Glass")) || SurfaceName.StartsWith(TEXT("Optical")))
+	{
+		Albedo = Maps = TEXT("09_camera_glass");
+		Metallic = 0.08f;
+		Smooth = 0.94f;
+		Color = FLinearColor(0.08f, 0.10f, 0.12f);
+	}
+	else if (SurfaceName.StartsWith(TEXT("Trim")))
+	{
+		Albedo = Maps = TEXT("trim");
+	}
+	else if (SurfaceName.StartsWith(TEXT("Emission")))
+	{
+		Albedo = TEXT("paint_offwhite");
+		Maps = TEXT("01_painted_alum");
+		Glow = 1.6f;
+		Color = FLinearColor(0.20f, 0.85f, 0.90f);
+	}
+	else if (SurfaceName.StartsWith(TEXT("MarkingLight")))
+	{
+		Color = FLinearColor(0.82f, 0.81f, 0.74f);
+	}
+	else if (SurfaceName.StartsWith(TEXT("MarkingDark")))
+	{
+		Color = FLinearColor(0.055f, 0.06f, 0.065f);
+	}
+	Tint(Mid, Color);
+	BindMaps(Mid, Albedo, Maps, Metallic, Smooth, Glow);
+	return Mid;
+}
+
+UMaterialInstanceDynamic* FFCAssetLoader::MakePropSurface(UObject* Outer, const FString& TexStem, const FLinearColor& Color)
+{
+	UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(FleetMaster(), Outer);
+	Tint(Mid, TexStem.IsEmpty() ? Color : FLinearColor::White);
+	if (!TexStem.IsEmpty())
+	{
+		if (UTexture2D* A = CachedTex(FString::Printf(TEXT("PropTextures/%s.png"), *TexStem), false, false))
+		{
+			Mid->SetTextureParameterValue(TEXT("Albedo"), A);
+			Mid->SetTextureParameterValue(TEXT("Texture"), A);
+		}
+	}
+	Mid->SetScalarParameterValue(TEXT("RoughnessMul"), 0.55f);
+	Mid->SetScalarParameterValue(TEXT("MetallicMul"), 0.08f);
+	return Mid;
 }
 
 static UStaticMesh* BuildMesh(
@@ -259,16 +441,6 @@ static bool ReadFcm1(
 	return true;
 }
 
-static void Tint(UMaterialInstanceDynamic* Mid, const FLinearColor& Color)
-{
-	if (!Mid)
-	{
-		return;
-	}
-	Mid->SetVectorParameterValue(TEXT("Color"), Color);
-	Mid->SetVectorParameterValue(TEXT("BaseColor"), Color);
-}
-
 UStaticMesh* FFCAssetLoader::LoadDrone(const FString& Name, UObject* Outer)
 {
 	const FString Path = RootDir() / TEXT("DroneModels") / (Name + TEXT(".fcm1"));
@@ -290,24 +462,9 @@ UStaticMesh* FFCAssetLoader::LoadDrone(const FString& Name, UObject* Outer)
 	}
 
 	TArray<UMaterialInterface*> Mats;
-	UMaterialInterface* Base = BaseMat();
 	for (int32 S = 0; S < Names.Num(); ++S)
 	{
-		UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Base, Outer);
-		const FString& Surf = Names[S];
-		FLinearColor Color(0.18f, 0.20f, 0.22f);
-		if (Surf.StartsWith(TEXT("Panel"))) Color = FLinearColor(0.75f, 0.76f, 0.72f);
-		else if (Surf.StartsWith(TEXT("Rubber"))) Color = FLinearColor(0.08f, 0.08f, 0.08f);
-		else if (Surf.StartsWith(TEXT("Anodized"))) Color = FLinearColor(0.12f, 0.12f, 0.13f);
-		else if (Surf.StartsWith(TEXT("Galvanized"))) Color = FLinearColor(0.55f, 0.56f, 0.54f);
-		else if (Surf.StartsWith(TEXT("Optical")) || Surf.StartsWith(TEXT("Glass"))) Color = FLinearColor(0.05f, 0.08f, 0.10f);
-		else if (Surf.StartsWith(TEXT("Emission"))) Color = FLinearColor(0.20f, 0.85f, 0.90f);
-		else if (Surf.StartsWith(TEXT("Carbon"))) Color = FLinearColor(0.06f, 0.06f, 0.07f);
-		else if (Surf.StartsWith(TEXT("Copper"))) Color = FLinearColor(0.45f, 0.22f, 0.10f);
-		else if (Surf.StartsWith(TEXT("Prop"))) Color = FLinearColor(0.10f, 0.10f, 0.11f);
-		else if (Surf.StartsWith(TEXT("Trim"))) Color = FLinearColor(0.70f, 0.70f, 0.68f);
-		Tint(Mid, Color);
-		Mats.Add(Mid);
+		Mats.Add(MakeDroneSurface(Outer, Names[S]));
 	}
 	UE_LOG(LogFCAssets, Log, TEXT("Loaded Unity aircraft %s (%d surfaces)"), *Name, Names.Num());
 	return BuildMesh(Outer, FName(*Name), V, N, T, Ix, Mats, Names);
@@ -342,7 +499,6 @@ UStaticMesh* FFCAssetLoader::LoadProp(const FString& Name, UObject* Outer)
 	TArray<TArray<int32>> Indices;
 	TArray<UMaterialInterface*> Mats;
 	TArray<FString> Names;
-	UMaterialInterface* Base = BaseMat();
 
 	for (int32 K = 0; K < SurfaceCount; ++K)
 	{
@@ -414,20 +570,7 @@ UStaticMesh* FFCAssetLoader::LoadProp(const FString& Name, UObject* Outer)
 		UVs.Add(MoveTemp(T));
 		Indices.Add(MoveTemp(Ix));
 		Names.Add(SurfName);
-
-		UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Base, Outer);
-		UTexture2D* Tex = nullptr;
-		if (!TexName.IsEmpty())
-		{
-			Tex = LoadPng(RootDir() / TEXT("PropTextures") / (TexName + TEXT(".png")), Outer);
-		}
-		Tint(Mid, Tex ? FLinearColor::White : Color);
-		if (Mid && Tex)
-		{
-			Mid->SetTextureParameterValue(TEXT("Texture"), Tex);
-			Mid->SetTextureParameterValue(TEXT("BaseColorTexture"), Tex);
-		}
-		Mats.Add(Mid);
+		Mats.Add(MakePropSurface(Outer, TexName, Color));
 	}
 	return BuildMesh(Outer, FName(*Name), Verts, Normals, UVs, Indices, Mats, Names);
 }

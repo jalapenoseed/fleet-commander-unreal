@@ -130,7 +130,7 @@ const TCHAR* FFCCatalog::CameraName(EFCCamera Kind)
 	case EFCCamera::FPV: return TEXT("FPV");
 	case EFCCamera::Shoulder: return TEXT("Shoulder");
 	case EFCCamera::Mounted: return TEXT("Mounted");
-	case EFCCamera::Ground: return TEXT("Ground");
+	case EFCCamera::Ground: return TEXT("Walk");
 	case EFCCamera::Free: return TEXT("Free");
 	case EFCCamera::Cinematic: return TEXT("Cinematic");
 	case EFCCamera::Action: return TEXT("Action");

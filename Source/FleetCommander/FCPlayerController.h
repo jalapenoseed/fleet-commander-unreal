@@ -62,5 +62,7 @@ private:
 	void OnPilot();
 	void OnLeave();
 	void OnShow();
+	void OnWalk();
 	void ApplyCamera(float Dt);
+	void SyncWalker(float Dt);
 };

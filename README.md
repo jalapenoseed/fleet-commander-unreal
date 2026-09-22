@@ -14,7 +14,7 @@ This is **not** the Three.js `main` branch and **not** a cube stand-in. `FleetAs
 | `*.fleetprop` (gzip FCP1) | `FleetAssets/ScenePacks/*.fcp1` houses, field camp, field ops |
 | PBR / albedo PNGs | `FleetAssets/DroneTextures`, `FleetAssets/PropTextures` |
 
-Open **`FleetCommander.uproject`** in **Unreal Engine 5.8**. The swarm, arena, cameras and HUD spawn from C++. The meshes are read at Play from `FleetAssets/` next to the uproject.
+Open **`FleetCommander.uproject`** in **Unreal Engine 5.8**. The swarm, arena, cameras, command UI and HUD spawn from C++. Meshes and PBR maps are read at Play from `FleetAssets/` next to the uproject. First editor launch also builds `/Game/Fleet/M_FleetPBR` (Python) so the Unity albedo/normal/rough/metal/AO maps actually light.
 
 1.3 feature guide: [unity/RELEASE-1.3.md](https://github.com/jalapenoseed/fleet-commander/blob/unity/unity/RELEASE-1.3.md).
 
@@ -33,7 +33,7 @@ If you already cloned, `git pull` in that folder. Throw away the old Downloads u
 1. Install **Unreal Engine 5.8** and **Visual Studio 2022** with *Game development with C++*.
 2. Clone so you can see `FleetCommander.uproject` in the folder, with `FleetAssets/` beside it.
 3. Double-click **`Compile-FleetCommander.cmd`**. It builds `FleetCommanderEditor` (Win64 Development) then opens the editor.
-4. Confirm **World Settings → GameMode Override** is `FCGameMode`, then press **Play**. A 96-aircraft night show launches with the Unity Scout / Relay / Cargo / Utility airframes and GRIDRUNNER camp + houses.
+4. Confirm **World Settings → GameMode Override** is `FCGameMode`, then press **Play**. A 96-aircraft night show launches with Unity Scout / Relay / Cargo / Utility airframes (PBR maps), GRIDRUNNER camp + houses, walking field operators, and the 1.3 command-center UI.
 
 If the engine asks to switch version, pick **5.8**.
 
@@ -66,6 +66,9 @@ Low-end (GTX 1050 Ti): in `Config/DefaultEngine.ini` under `[SystemSettings]`, u
 | --- | --- |
 | Imported Scout / Relay / Cargo / Utility FCM1 airframes + LOD | `FCAssetLoader` builds `UStaticMesh` at Play, instanced per frame |
 | GRIDRUNNER houses, field camp, field ops FCP1 | Spawned from Unity `ScenePackPlacement` positions |
+| Original PBR maps (albedo / normal / rough / metal / AO) | Applied per Unity `FleetSurface` slot via `/Game/Fleet/M_FleetPBR` |
+| Command center UI Toolkit | Clickable 1.3 command HUD: Fleet / Arena / Director / Cameras / Settings / Help |
+| Ground / audience viewpoint | Field operators walk the camp; `V` or Cameras → Walk puts you on the compound |
 | Show fleet 0–10,000 | 0–2,000 (default 96). Everyday target 64–256 on a 1050 Ti |
 | 6 skins, 10 weapons, frame speed/armor/mass | Same catalog numbers |
 | 14 formations + orbit/wave/pulse/dance + Boids | `FCFormation.cpp` / `FCWorld.cpp` |
@@ -75,7 +78,7 @@ Low-end (GTX 1050 Ti): in `Config/DefaultEngine.ini` under `[SystemSettings]`, u
 | Pulse / Rapid / Scatter / Shockwave + magazines, heat, reload, guard/dodge/boost | Arcade trace weapons |
 | Director cameras, hide HUD, pause, launch/recall | Orbit/top/front/cinematic/action/survivor plus `H` / `P` / `L` / `K` |
 
-Not in this Unreal drop (still Unity-only): sports, chess, command-center UI Toolkit, Night Brite, Art Studio pixel canvas, Nerd/Logic labs, replay JSON, Niagara weather, full-res (non-LOD) drone meshes, rotor animation on the imported meshes. Those can be added on this project without changing the sim.
+Not in this Unreal drop (still Unity-only): sports, chess, Night Brite, Art Studio pixel canvas, Nerd/Logic labs, replay JSON, Niagara weather, full-res (non-LOD) drone meshes, rotor spin on imported props. Those can be added on this project without changing the sim.
 
 ## Controls
 
@@ -92,6 +95,7 @@ Spectator (show / arena overview)
 | Tab / X | Next / previous drone |
 | Left click | Select nearest aircraft |
 | C | Cycle camera |
+| V | Walk the GRIDRUNNER compound (WASD + RMB look) |
 | G | Start 12v12 arena |
 | 1 / 2 | Join Blue / Join Red |
 | F | Pilot selected |

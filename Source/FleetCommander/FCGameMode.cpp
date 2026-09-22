@@ -1,5 +1,6 @@
 #include "FCGameMode.h"
 #include "FCAssetLoader.h"
+#include "FCOperator.h"
 #include "FCWorld.h"
 #include "FCPawn.h"
 #include "FCPlayerController.h"
@@ -34,6 +35,26 @@ void AFCGameMode::StartPlay()
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	WorldSim = GetWorld()->SpawnActor<AFCWorld>(AFCWorld::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, Params);
+	SpawnOperators();
+}
+
+void AFCGameMode::SpawnOperators()
+{
+	UWorld* W = GetWorld();
+	if (!W) return;
+	FActorSpawnParameters P;
+	P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	const FVector Camp(9500.f, -11500.f, 20.f);
+	for (int32 I = 0; I < 3; ++I)
+	{
+		const FVector Loc = Camp + FVector((I - 1) * 220.f, I * 140.f, 0.f);
+		if (AFCOperator* Op = W->SpawnActor<AFCOperator>(AFCOperator::StaticClass(), Loc, FRotator(0.f, I * 120.f, 0.f), P))
+		{
+			Op->PatrolIndex = I;
+			Op->Yaw = I * 120.f;
+			Walkers.Add(Op);
+		}
+	}
 }
 
 void AFCGameMode::BuildArena()

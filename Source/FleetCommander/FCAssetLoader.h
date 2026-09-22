@@ -4,6 +4,7 @@
 
 class UStaticMesh;
 class UMaterialInterface;
+class UMaterialInstanceDynamic;
 class UTexture2D;
 
 /** Loads Unity 1.3 FCM1 drone meshes and FCP1 GRIDRUNNER scenery from FleetAssets/. */
@@ -20,4 +21,7 @@ struct FFCAssetLoader
 	static UStaticMesh* LoadProp(const FString& Name, UObject* Outer);
 	static void LoadCampAndHouses(UObject* Outer, TArray<FFCLoadedProp>& Out);
 	static UTexture2D* LoadPng(const FString& AbsPath, UObject* Outer);
+	static UMaterialInterface* FleetMaster();
+	static UMaterialInstanceDynamic* MakeDroneSurface(UObject* Outer, const FString& SurfaceName);
+	static UMaterialInstanceDynamic* MakePropSurface(UObject* Outer, const FString& TexStem, const FLinearColor& Color);
 };
