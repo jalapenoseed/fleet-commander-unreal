@@ -25,6 +25,30 @@ if not exist "%PROJECT%" (
   exit /b 1
 )
 
+rem UE 5.8 still launches local UBA after -NoUBA. Kill it in the project config.
+if not exist "Saved\UnrealBuildTool" mkdir "Saved\UnrealBuildTool"
+copy /Y "Build\UnrealBuildTool\BuildConfiguration.xml" "Saved\UnrealBuildTool\BuildConfiguration.xml" >nul
+
+set FREEGB=0
+for /f %%A in ('powershell -NoProfile -Command "[int]((Get-PSDrive -Name C).Free/1GB)"') do set FREEGB=%%A
+echo C: free space: %FREEGB% GB
+if %FREEGB% LSS 20 (
+  echo.
+  echo DISK FULL — Unreal cannot compile.
+  echo C: has %FREEGB% GB free. Need about 20 GB.
+  echo.
+  echo Delete these, empty Recycle Bin, then run this script again:
+  echo   1. This folder's Intermediate\  and  Saved\
+  echo   2. C:\ProgramData\Epic\UnrealBuildAccelerator
+  echo   3. C:\Users\ty\Downloads\fleet-commander-unreal-main  (old cube zip)
+  echo   4. Recycle Bin
+  echo.
+  echo %DATE% %TIME% > "%LOG%"
+  echo DISK FULL: C: has %FREEGB% GB free. Need ~20 GB.>> "%LOG%"
+  pause
+  exit /b 1
+)
+
 echo Compiling FleetCommanderEditor  Win64 Development
 echo Project: %PROJECT%
 echo Log:     %LOG%
@@ -32,9 +56,10 @@ echo.
 echo %DATE% %TIME% > "%LOG%"
 echo ENGINE=%ENGINE%>> "%LOG%"
 echo PROJECT=%PROJECT%>> "%LOG%"
+echo FREEGB=%FREEGB%>> "%LOG%"
 echo.
 
-call "%BUILD%" FleetCommanderEditor Win64 Development "%PROJECT%" -WaitMutex -NoHotReload -NoUBA -MaxParallelActions=3 >> "%LOG%" 2>&1
+call "%BUILD%" FleetCommanderEditor Win64 Development "%PROJECT%" -WaitMutex -NoHotReload -NoUBA -Executor=Parallel -UBAStoreCapacityGb=2 -MaxParallelActions=3 >> "%LOG%" 2>&1
 set "ERR=%ERRORLEVEL%"
 type "%LOG%"
 echo.

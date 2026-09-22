@@ -37,10 +37,23 @@ If you already cloned, `git pull` in that folder. Throw away the old Downloads u
 
 If the engine asks to switch version, pick **5.8**.
 
+### “There is not enough space on the disk”
+
+That is **not a code error**. UE 5.8 writes a multi-GB editor PCH plus a default **40 GB** Unreal Build Accelerator cache. The C: drive filled up.
+
+Free ~**20 GB** on C:, then compile again:
+
+1. Delete `Intermediate` and `Saved` inside this repo (failed compile leftovers).
+2. Delete `C:\ProgramData\Epic\UnrealBuildAccelerator` (the 40 GB UBA cache).
+3. Delete the old Downloads unzip `fleet-commander-unreal-main` if it is still there.
+4. Empty Recycle Bin.
+
+`git pull`, then run `Compile-FleetCommander.cmd` again. The script now refuses to start if C: has under 20 GB free, and it turns UBA off so it cannot reserve 40 GB.
+
 If you cannot run `.cmd` files, open **x64 Native Tools Command Prompt for VS 2022** and run:
 
 ```
-"C:\Program Files\Epic Games\UE_5.8\Engine\Build\BatchFiles\Build.bat" FleetCommanderEditor Win64 Development "%CD%\FleetCommander.uproject" -WaitMutex -NoHotReload
+"C:\Program Files\Epic Games\UE_5.8\Engine\Build\BatchFiles\Build.bat" FleetCommanderEditor Win64 Development "%CD%\FleetCommander.uproject" -WaitMutex -NoHotReload -NoUBA -Executor=Parallel -UBAStoreCapacityGb=2 -MaxParallelActions=3
 ```
 
 Then open the uproject.

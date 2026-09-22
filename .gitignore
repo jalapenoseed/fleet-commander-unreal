@@ -2,7 +2,11 @@ Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
-Build/
+Build/Windows/
+Build/Android/
+Build/IOS/
+Build/Mac/
+Build/Linux/
 .vs/
 .idea/
 FileOpenOrder/
