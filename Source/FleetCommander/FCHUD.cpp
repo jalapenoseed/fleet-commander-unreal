@@ -4,6 +4,7 @@
 #include "FCCatalog.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
+#include "Engine/Font.h"
 #include "Engine/World.h"
 
 void AFCHUD::Line(float X, float Y, const FString& Text, const FLinearColor& Color, float Scale)

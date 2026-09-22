@@ -132,15 +132,15 @@ int32 AFCWorld::LongestSurvivor() const
 	return Best;
 }
 
-void AFCWorld::RebuildShow(int32 Count)
+void AFCWorld::RebuildShow(int32 InCount)
 {
-	Count = FMath::Clamp(Count, 0, 2000);
+	InCount = FMath::Clamp(InCount, 0, 2000);
 	bBattle = false;
 	bRoundEnded = false;
 	Controlled = -1;
 	Banner.Empty();
-	Drones.Reset(Count);
-	for (int32 I = 0; I < Count; ++I)
+	Drones.Reset(InCount);
+	for (int32 I = 0; I < InCount; ++I)
 	{
 		FFCDroneState S;
 		S.Id = I;
@@ -149,7 +149,7 @@ void AFCWorld::RebuildShow(int32 Count)
 		S.Frame = static_cast<EFCFrame>(I % 4);
 		S.Skin = static_cast<EFCSkin>(I % 6);
 		S.Weapon = EFCWeapon::Pulse;
-		const FVector Pad = FFCFormationMath::Grid(I, Count, 180.f) + FVector(0.f, 0.f, 40.f);
+		const FVector Pad = FFCFormationMath::Grid(I, InCount, 180.f) + FVector(0.f, 0.f, 40.f);
 		S.Position = Pad;
 		S.Home = Pad;
 		S.Target = Pad;
@@ -159,7 +159,7 @@ void AFCWorld::RebuildShow(int32 Count)
 		Drones.Add(S);
 	}
 	Selected = 0;
-	LastEvent = FString::Printf(TEXT("Show fleet rebuilt: %d aircraft"), Count);
+	LastEvent = FString::Printf(TEXT("Show fleet rebuilt: %d aircraft"), InCount);
 }
 
 void AFCWorld::LaunchAll()

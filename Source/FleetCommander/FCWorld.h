@@ -7,6 +7,8 @@
 
 class UInstancedStaticMeshComponent;
 class UStaticMesh;
+class USceneComponent;
+class UMaterialInstanceDynamic;
 
 UCLASS()
 class FLEETCOMMANDER_API AFCWorld : public AActor
@@ -59,7 +61,7 @@ public:
 	FVector ActionFocus() const;
 	int32 LongestSurvivor() const;
 
-	void RebuildShow(int32 Count);
+	void RebuildShow(int32 InCount);
 	void LaunchAll();
 	void RecallAll();
 	void CycleFormation(int32 Delta);

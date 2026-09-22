@@ -6,6 +6,7 @@
 
 class UCameraComponent;
 class USpringArmComponent;
+class USceneComponent;
 
 UCLASS()
 class FLEETCOMMANDER_API AFCPawn : public APawn

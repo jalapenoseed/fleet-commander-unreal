@@ -98,8 +98,8 @@ void AFCPlayerController::PlayerTick(float DeltaTime)
 void AFCPlayerController::ApplyCamera(float Dt)
 {
 	AFCWorld* W = Sim();
-	AFCPawn* Pawn = GetPawn<AFCPawn>();
-	if (!W || !Pawn) return;
+	AFCPawn* CamPawn = GetPawn<AFCPawn>();
+	if (!W || !CamPawn) return;
 
 	FVector Focus = W->FleetCentroid();
 	if (W->Drones.IsValidIndex(W->Selected)) Focus = W->Drones[W->Selected].Position;
@@ -164,12 +164,12 @@ void AFCPlayerController::ApplyCamera(float Dt)
 		}
 	}
 
-	Pawn->SetActorLocation(FMath::VInterpTo(Pawn->GetActorLocation(), Desired, Dt, 6.f));
-	Pawn->SetActorRotation(FMath::RInterpTo(Pawn->GetActorRotation(), DesiredRot, Dt, 8.f));
-	if (Pawn->Boom)
+	CamPawn->SetActorLocation(FMath::VInterpTo(CamPawn->GetActorLocation(), Desired, Dt, 6.f));
+	CamPawn->SetActorRotation(FMath::RInterpTo(CamPawn->GetActorRotation(), DesiredRot, Dt, 8.f));
+	if (CamPawn->Boom)
 	{
-		Pawn->Boom->TargetArmLength = 0.f;
-		Pawn->Boom->SetRelativeRotation(FRotator::ZeroRotator);
+		CamPawn->Boom->TargetArmLength = 0.f;
+		CamPawn->Boom->SetRelativeRotation(FRotator::ZeroRotator);
 	}
 }
 
