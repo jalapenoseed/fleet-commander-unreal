@@ -1,5 +1,6 @@
 #include "FCPawn.h"
 #include "Camera/CameraComponent.h"
+#include "Components/SceneComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
 AFCPawn::AFCPawn()

@@ -4,7 +4,10 @@
 #include "FCPawn.h"
 #include "FCCatalog.h"
 #include "Camera/CameraComponent.h"
+#include "Components/InputComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Engine/HitResult.h"
 #include "Engine/World.h"
 
 AFCPlayerController::AFCPlayerController()

@@ -12,7 +12,10 @@
 #include "Components/SkyLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
+#include "Engine/EngineTypes.h"
 
 AFCGameMode::AFCGameMode()
 {
