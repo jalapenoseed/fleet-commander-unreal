@@ -1,0 +1,27 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "Games",
+  "Description": "Fleet Commander 1.3 — native Unreal Engine 5.8 C++ port of the Unity swarm workshop.",
+  "Plugins": [
+    {
+      "Name": "PythonScriptPlugin",
+      "Enabled": true
+    },
+    {
+      "Name": "EditorScriptingUtilities",
+      "Enabled": true
+    },
+    {
+      "Name": "EnhancedInput",
+      "Enabled": false
+    }
+  ],
+  "Modules": [
+    {
+      "Name": "FleetCommander",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}
