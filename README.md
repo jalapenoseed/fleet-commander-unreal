@@ -8,14 +8,16 @@ Source: [Unity 1.3 feature guide](https://github.com/jalapenoseed/fleet-commande
 
 ## Open and play
 
-1. Install **Unreal Engine 5.8** (same association as GRIDRUNNER Unreal).
-2. Double-click `FleetCommander.uproject`. If prompted, **Yes** to rebuild the `FleetCommander` modules.
-3. When the editor opens, confirm **World Settings → GameMode Override** is `FCGameMode` (startup Python sets this).
-4. Press **Play**. A 96-aircraft night stadium show launches automatically.
+This is a **C++** project. Unreal cannot open it until `FleetCommander` is compiled once — that is the “module could not be found” dialog.
+
+1. Install **Unreal Engine 5.8** (same association as GRIDRUNNER Unreal) and **Visual Studio 2022** with *Game development with C++*.
+2. Clone this repo, or unzip so you can see `FleetCommander.uproject` in the folder.
+3. Double-click **`Compile-FleetCommander.cmd`**. It builds `FleetCommanderEditor` (Win64 Development) with the same `Build.bat` GRIDRUNNER uses, then opens the editor.
+4. Confirm **World Settings → GameMode Override** is `FCGameMode`, then press **Play**. A 96-aircraft night stadium show launches automatically.
+
+If you already double-clicked the `.uproject` and got *The game module 'FleetCommander' could not be found*, close that dialog and run `Compile-FleetCommander.cmd` instead. The splash screen is the editor; the missing file is `Binaries/Win64/UnrealEditor-FleetCommander.dll`, which only appears after a successful compile.
 
 If the engine asks to switch version, pick **5.8**. Do not convert to an older engine.
-
-Windows shortcut: `Launch-FleetCommander.cmd` (expects Epic’s default `UE_5.8` path).
 
 Low-end (GTX 1050 Ti): in `Config/DefaultEngine.ini` under `[SystemSettings]`, use the commented 75% / 1800 MB / Lumen-off block.
 

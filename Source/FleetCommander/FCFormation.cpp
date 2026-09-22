@@ -142,7 +142,7 @@ FVector FFCFormationMath::Target(const FFCFleetConfig& C, int32 I, int32 N, floa
 	}
 	P = FRotator(0.f, C.RotationDeg, 0.f).RotateVector(P) * C.Scale;
 	FVector Field = FVector::ZeroVector;
-	for (int32 L = 0; L < 4; ++L) Field += Influence(C.Layers[L], P, I, Time);
+	for (const FFCInfluenceLayer& L : C.Layers) Field += Influence(L, P, I, Time);
 	if (Field.SizeSquared() > 3200.f * 3200.f) Field = Field.GetSafeNormal() * 3200.f;
 	P += Field + C.Origin + FVector(0.f, 0.f, C.Height);
 	return FCClampField(P);

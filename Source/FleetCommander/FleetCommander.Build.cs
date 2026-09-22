@@ -7,7 +7,7 @@ public class FleetCommander : ModuleRules
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         PublicDependencyModuleNames.AddRange(new string[]
         {
-            "Core", "CoreUObject", "Engine", "InputCore", "RenderCore", "RHI", "Slate", "SlateCore"
+            "Core", "CoreUObject", "Engine", "InputCore"
         });
     }
 }

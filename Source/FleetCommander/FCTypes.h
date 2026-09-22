@@ -158,6 +158,11 @@ struct FFCFleetConfig
 {
 	GENERATED_BODY()
 
+	FFCFleetConfig()
+	{
+		Layers.SetNum(4);
+	}
+
 	EFCFormation Formation = EFCFormation::Ring;
 	EFCMotion Pattern = EFCMotion::Orbit;
 	EFCPlanet Planet = EFCPlanet::Earth;
@@ -181,7 +186,7 @@ struct FFCFleetConfig
 	float BatteryWh = 45.f;
 	float DrainScale = 1.f;
 	float Bpm = 120.f;
-	FFCInfluenceLayer Layers[4];
+	TArray<FFCInfluenceLayer> Layers;
 };
 
 inline float FCMeters(float Meters) { return Meters * 100.f; }

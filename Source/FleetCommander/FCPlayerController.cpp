@@ -6,8 +6,6 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Engine/World.h"
-#include "Engine/GameViewportClient.h"
-#include "CollisionQueryParams.h"
 
 AFCPlayerController::AFCPlayerController()
 {

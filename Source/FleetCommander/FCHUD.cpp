@@ -3,12 +3,11 @@
 #include "FCWorld.h"
 #include "FCCatalog.h"
 #include "Engine/Canvas.h"
-#include "Engine/Engine.h"
 #include "Engine/World.h"
 
 void AFCHUD::Line(float X, float Y, const FString& Text, const FLinearColor& Color, float Scale)
 {
-	DrawText(Text, Color, X, Y, GEngine->GetLargeFont(), Scale, false);
+	DrawText(Text, Color, X, Y, nullptr, Scale, false);
 }
 
 void AFCHUD::DrawHUD()

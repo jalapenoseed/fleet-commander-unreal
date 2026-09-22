@@ -2,10 +2,12 @@
 #include "FCCatalog.h"
 #include "FCFormation.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/SceneComponent.h"
+#include "Engine/EngineTypes.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
-#include "Math/RotationMatrix.h"
+#include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 
 AFCWorld::AFCWorld()
@@ -348,9 +350,9 @@ void AFCWorld::ApplyPilotInput(const FVector& Move, const FRotator& Look, bool b
 	const FFCFrameProfile P = FFCCatalog::Frame(S.Frame);
 	S.Rotation.Yaw += Look.Yaw;
 	S.Rotation.Pitch = FMath::Clamp(S.Rotation.Pitch + Look.Pitch, -50.f, 50.f);
-	const FRotationMatrix M(FRotator(0.f, S.Rotation.Yaw, 0.f));
-	const FVector Forward = M.GetUnitAxis(EAxis::X);
-	const FVector Right = M.GetUnitAxis(EAxis::Y);
+	const FRotator YawRot(0.f, S.Rotation.Yaw, 0.f);
+	const FVector Forward = YawRot.RotateVector(FVector::ForwardVector);
+	const FVector Right = YawRot.RotateVector(FVector::RightVector);
 	const float Speed = Config.Speed * P.Speed * (bBoost ? 1.65f : 1.f);
 	S.Velocity += (Forward * Move.X + Right * Move.Y + FVector(0.f, 0.f, Move.Z)) * Speed * P.Agility * Dt * 3.f;
 	S.Velocity *= FMath::Exp(-Dt * 2.4f);
@@ -675,7 +677,6 @@ void AFCWorld::UpdateVisuals(float Dt)
 		ArmMesh->ClearInstances();
 		RotorMesh->ClearInstances();
 		BeaconMesh->ClearInstances();
-		BodyMesh->PreAllocateInstancesMemory(N);
 		for (int32 I = 0; I < N; ++I)
 		{
 			BodyMesh->AddInstance(FTransform::Identity, false);
