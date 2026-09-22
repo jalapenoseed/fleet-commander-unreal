@@ -28,7 +28,7 @@ void AFCHUD::DrawHUD()
 
 	DrawRect(FLinearColor(0.04f, 0.045f, 0.05f, 0.72f), M - 12.f, M - 12.f, 520.f, 168.f);
 	Line(M, M, TEXT("FLEET COMMANDER  1.3"), Ink, 1.15f);
-	Line(M, M + 28.f, TEXT("UNREAL ENGINE 5.8  ·  UNITY PORT"), Dim, 0.85f);
+	Line(M, M + 28.f, TEXT("UNREAL 5.8  ·  UNITY 1.3 AIRCRAFT + GRIDRUNNER SCENERY"), Dim, 0.85f);
 	Line(M, M + 56.f, FString::Printf(TEXT("Aircraft  %d    Formation  %s    Camera  %s"),
 		W->Count(), FFCCatalog::FormationName(W->Config.Formation), FFCCatalog::CameraName(W->CameraMode)), Ink, 0.9f);
 	Line(M, M + 80.f, FString::Printf(TEXT("%s%s"), W->bPaused ? TEXT("PAUSED  ·  ") : TEXT(""), *W->LastEvent), Dim, 0.85f);

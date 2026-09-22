@@ -4,3 +4,6 @@
 *.sln text eol=crlf
 *.vcxproj text eol=crlf
 *.uproject text eol=lf
+*.fcm1 binary
+*.fcp1 binary
+*.png binary

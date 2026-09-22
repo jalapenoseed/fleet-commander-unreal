@@ -1,4 +1,5 @@
 #include "FCWorld.h"
+#include "FCAssetLoader.h"
 #include "FCCatalog.h"
 #include "FCFormation.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -9,6 +10,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
+#include "UObject/Object.h"
+#include "UObject/UObjectGlobals.h"
 
 AFCWorld::AFCWorld()
 {
@@ -43,6 +46,21 @@ AFCWorld::AFCWorld()
 	if (Cube.Succeeded()) { BodyMesh->SetStaticMesh(Cube.Object); ArmMesh->SetStaticMesh(Cube.Object); TracerMesh->SetStaticMesh(Cube.Object); }
 	if (Sphere.Succeeded()) BeaconMesh->SetStaticMesh(Sphere.Object);
 	if (Cyl.Succeeded()) RotorMesh->SetStaticMesh(Cyl.Object);
+
+	ScoutMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("ScoutMesh"));
+	RelayMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RelayMesh"));
+	CargoMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("CargoMesh"));
+	UtilityMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("UtilityMesh"));
+	UInstancedStaticMeshComponent* Frames[4] = { ScoutMesh, RelayMesh, CargoMesh, UtilityMesh };
+	for (UInstancedStaticMeshComponent* M : Frames)
+	{
+		M->SetupAttachment(Root);
+		M->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		M->SetCollisionResponseToAllChannels(ECR_Ignore);
+		M->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+		M->SetCastShadow(true);
+		M->SetMobility(EComponentMobility::Movable);
+	}
 }
 
 void AFCWorld::BeginPlay()
@@ -65,9 +83,32 @@ void AFCWorld::BeginPlay()
 	{
 		TracerMesh->SetMaterial(0, TracerMat);
 	}
+	static const TCHAR* LodNames[] = { TEXT("Scout_LOD"), TEXT("Relay_LOD"), TEXT("Cargo_LOD"), TEXT("Utility_LOD") };
+	int32 Loaded = 0;
+	for (int32 F = 0; F < 4; ++F)
+	{
+		if (UInstancedStaticMeshComponent* Comp = FrameComp(F))
+		{
+			if (UStaticMesh* Mesh = FFCAssetLoader::LoadDrone(LodNames[F], this))
+			{
+				Comp->SetStaticMesh(Mesh);
+				++Loaded;
+			}
+		}
+	}
+	bUnityMeshes = Loaded == 4;
+	if (bUnityMeshes)
+	{
+		BodyMesh->SetVisibility(false);
+		ArmMesh->SetVisibility(false);
+		RotorMesh->SetVisibility(false);
+	}
+	LastEvent = bUnityMeshes
+		? TEXT("Unity 1.3 aircraft loaded (Scout/Relay/Cargo/Utility)")
+		: TEXT("Unity meshes missing — using stand-in cubes. Keep FleetAssets next to the uproject.");
 	RebuildShow(96);
 	LaunchAll();
-	LastEvent = TEXT("Fleet Commander 1.3 — Unreal port ready");
+	if (bUnityMeshes) LastEvent = TEXT("Fleet Commander 1.3 — Unity aircraft + GRIDRUNNER scenery");
 }
 
 void AFCWorld::Tick(float DeltaSeconds)
@@ -86,6 +127,17 @@ void AFCWorld::Tick(float DeltaSeconds)
 		}
 	}
 	UpdateVisuals(Dt);
+}
+
+UInstancedStaticMeshComponent* AFCWorld::FrameComp(int32 Index) const
+{
+	switch (Index)
+	{
+	case 0: return ScoutMesh;
+	case 1: return RelayMesh;
+	case 2: return CargoMesh;
+	default: return UtilityMesh;
+	}
 }
 
 const FFCDroneState* AFCWorld::GetSelected() const
@@ -671,7 +723,53 @@ void AFCWorld::UpdateVisuals(float Dt)
 {
 	RotorPhase += Dt * (bPaused ? 0.f : 28.f);
 	const int32 N = Drones.Num();
-	if (BodyMesh->GetInstanceCount() != N)
+	if (bUnityMeshes)
+	{
+		int32 Want[4] = {0, 0, 0, 0};
+		for (const FFCDroneState& S : Drones)
+		{
+			if (!S.IsDisabled() || S.Phase == EFCPhase::Wreck)
+			{
+				Want[FMath::Clamp(static_cast<int32>(S.Frame), 0, 3)]++;
+			}
+		}
+		for (int32 F = 0; F < 4; ++F)
+		{
+			UInstancedStaticMeshComponent* Comp = FrameComp(F);
+			if (!Comp) continue;
+			if (Comp->GetInstanceCount() != Want[F])
+			{
+				Comp->ClearInstances();
+				for (int32 I = 0; I < Want[F]; ++I)
+				{
+					Comp->AddInstance(FTransform::Identity, false);
+				}
+			}
+		}
+		int32 Next[4] = {0, 0, 0, 0};
+		for (int32 I = 0; I < N; ++I)
+		{
+			const FFCDroneState& S = Drones[I];
+			const int32 F = FMath::Clamp(static_cast<int32>(S.Frame), 0, 3);
+			UInstancedStaticMeshComponent* Comp = FrameComp(F);
+			if (!Comp) continue;
+			const float Wreck = S.Phase == EFCPhase::Wreck ? 0.55f : 1.f;
+			FTransform BT(S.Rotation, S.Position, FVector(Wreck));
+			const int32 Slot = Next[F]++;
+			if (Slot < Comp->GetInstanceCount())
+			{
+				Comp->UpdateInstanceTransform(Slot, BT, true, false, true);
+			}
+		}
+		for (int32 F = 0; F < 4; ++F)
+		{
+			if (UInstancedStaticMeshComponent* Comp = FrameComp(F))
+			{
+				Comp->MarkRenderStateDirty();
+			}
+		}
+	}
+	else if (BodyMesh->GetInstanceCount() != N)
 	{
 		BodyMesh->ClearInstances();
 		ArmMesh->ClearInstances();
@@ -686,28 +784,47 @@ void AFCWorld::UpdateVisuals(float Dt)
 		}
 		BodyMesh->MarkRenderStateDirty();
 	}
-	for (int32 I = 0; I < N; ++I)
+	if (!bUnityMeshes)
 	{
-		const FFCDroneState& S = Drones[I];
-		const FVector Body = FFCCatalog::FrameBodyScale(S.Frame);
-		const float Wreck = S.Phase == EFCPhase::Wreck ? 0.55f : 1.f;
-		FTransform BT(S.Rotation, S.Position, Body * 0.01f * Wreck);
-		BodyMesh->UpdateInstanceTransform(I, BT, true, false, true);
-		FTransform AT(S.Rotation, S.Position, FVector(0.55f, 0.08f, 0.04f) * Wreck);
-		ArmMesh->UpdateInstanceTransform(I, AT, true, false, true);
-		FRotator RotorRot = S.Rotation;
-		RotorRot.Yaw += RotorPhase * 70.f * (S.IsAirborne() && S.Phase != EFCPhase::Wreck ? 1.f : 0.05f);
-		FTransform RT(RotorRot, S.Position + S.Rotation.RotateVector(FVector(0.f, 0.f, Body.Z * 0.4f)), FVector(0.32f, 0.32f, 0.03f));
-		RotorMesh->UpdateInstanceTransform(I, RT, true, false, true);
-		const FLinearColor Team = bBattle ? FFCCatalog::TeamColor(S.FleetId) : FFCCatalog::SkinColor(S.Skin);
-		FTransform KT(S.Rotation, S.Position + S.Rotation.RotateVector(FVector(-Body.X * 0.2f, 0.f, Body.Z * 0.6f)), FVector(0.12f + (I == Selected ? 0.08f : 0.f)));
-		if (S.Phase == EFCPhase::Wreck) KT.SetScale3D(FVector(0.04f));
-		BeaconMesh->UpdateInstanceTransform(I, KT, true, false, true);
+		for (int32 I = 0; I < N; ++I)
+		{
+			const FFCDroneState& S = Drones[I];
+			const FVector Body = FFCCatalog::FrameBodyScale(S.Frame);
+			const float Wreck = S.Phase == EFCPhase::Wreck ? 0.55f : 1.f;
+			FTransform BT(S.Rotation, S.Position, Body * 0.01f * Wreck);
+			BodyMesh->UpdateInstanceTransform(I, BT, true, false, true);
+			FTransform AT(S.Rotation, S.Position, FVector(0.55f, 0.08f, 0.04f) * Wreck);
+			ArmMesh->UpdateInstanceTransform(I, AT, true, false, true);
+			FRotator RotorRot = S.Rotation;
+			RotorRot.Yaw += RotorPhase * 70.f * (S.IsAirborne() && S.Phase != EFCPhase::Wreck ? 1.f : 0.05f);
+			FTransform RT(RotorRot, S.Position + S.Rotation.RotateVector(FVector(0.f, 0.f, Body.Z * 0.4f)), FVector(0.32f, 0.32f, 0.03f));
+			RotorMesh->UpdateInstanceTransform(I, RT, true, false, true);
+			FTransform KT(S.Rotation, S.Position + S.Rotation.RotateVector(FVector(-Body.X * 0.2f, 0.f, Body.Z * 0.6f)), FVector(0.12f + (I == Selected ? 0.08f : 0.f)));
+			if (S.Phase == EFCPhase::Wreck) KT.SetScale3D(FVector(0.04f));
+			BeaconMesh->UpdateInstanceTransform(I, KT, true, false, true);
+		}
+		BodyMesh->MarkRenderStateDirty();
+		ArmMesh->MarkRenderStateDirty();
+		RotorMesh->MarkRenderStateDirty();
+		BeaconMesh->MarkRenderStateDirty();
 	}
-	BodyMesh->MarkRenderStateDirty();
-	ArmMesh->MarkRenderStateDirty();
-	RotorMesh->MarkRenderStateDirty();
-	BeaconMesh->MarkRenderStateDirty();
+	if (BeaconMesh)
+	{
+		if (BeaconMesh->GetInstanceCount() != N)
+		{
+			BeaconMesh->ClearInstances();
+			for (int32 I = 0; I < N; ++I) BeaconMesh->AddInstance(FTransform::Identity, false);
+		}
+		for (int32 I = 0; I < N; ++I)
+		{
+			const FFCDroneState& S = Drones[I];
+			const FVector Body = FFCCatalog::FrameBodyScale(S.Frame);
+			FTransform KT(S.Rotation, S.Position + S.Rotation.RotateVector(FVector(-Body.X * 0.2f, 0.f, Body.Z * 0.6f)), FVector(0.12f + (I == Selected ? 0.08f : 0.f)));
+			if (S.Phase == EFCPhase::Wreck) KT.SetScale3D(FVector(0.04f));
+			BeaconMesh->UpdateInstanceTransform(I, KT, true, false, true);
+		}
+		BeaconMesh->MarkRenderStateDirty();
+	}
 }
 
 UMaterialInstanceDynamic* AFCWorld::MakeColor(const FLinearColor& Color, bool bEmissive)

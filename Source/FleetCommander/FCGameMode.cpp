@@ -1,8 +1,11 @@
 #include "FCGameMode.h"
+#include "FCAssetLoader.h"
 #include "FCWorld.h"
 #include "FCPawn.h"
 #include "FCPlayerController.h"
 #include "FCHUD.h"
+#include "Containers/Array.h"
+#include "Containers/Map.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/SkyLight.h"
 #include "Engine/ExponentialHeightFog.h"
@@ -105,4 +108,55 @@ void AFCGameMode::BuildArena()
 	SpawnBox(FVector(4500.f, 0.f, 30.f), FVector(18.f, 18.f, 0.3f), FLinearColor(0.5f, 0.22f, 0.1f));
 	// Control station
 	SpawnBox(FVector(0.f, -4000.f, 250.f), FVector(8.f, 6.f, 5.f), FLinearColor(0.16f, 0.17f, 0.18f));
+
+	TArray<FFCLoadedProp> Props;
+	FFCAssetLoader::LoadCampAndHouses(this, Props);
+	TMap<FString, UStaticMesh*> ByName;
+	for (const FFCLoadedProp& Prop : Props)
+	{
+		if (Prop.Mesh) ByName.Add(Prop.Name, Prop.Mesh);
+	}
+	auto U3 = [](float X, float Y, float Z) { return FVector(Z, X, Y) * 100.f; };
+	auto Place = [&](const FString& Name, const FVector& UnityPos, float Yaw, float Scale)
+	{
+		UStaticMesh** Found = ByName.Find(Name);
+		if (!Found || !*Found) return;
+		AStaticMeshActor* A = W->SpawnActor<AStaticMeshActor>(U3(UnityPos.X, UnityPos.Y, UnityPos.Z), FRotator(0.f, Yaw, 0.f), P);
+		if (!A) return;
+		UStaticMeshComponent* Mesh = A->GetStaticMeshComponent();
+		Mesh->SetStaticMesh(*Found);
+		Mesh->SetWorldScale3D(FVector(Scale));
+		Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		Mesh->SetMobility(EComponentMobility::Static);
+	};
+	static const TCHAR* Houses[] = {
+		TEXT("GR05_01_UtilityHouse"), TEXT("GR05_02_RoadsideStore"), TEXT("GR05_03_TexasHouse"),
+		TEXT("GR05_04_Maintenance"), TEXT("GR05_05_CreekPump")
+	};
+	for (int32 I = 0; I < 14; ++I)
+	{
+		const float X = (I / 2 - 3) * 37.f;
+		const float Z = (I % 2 == 0) ? 192.f : 252.f;
+		Place(Houses[I % 5], FVector(X, 0.f, Z), (I % 2 == 0) ? 0.f : 180.f, 1.5f);
+	}
+	const FVector Origin(-115.f, 0.f, 95.f);
+	static const TCHAR* Camp[] = {
+		TEXT("GR_TarpShelter_02"), TEXT("GR_Workbench_02"), TEXT("GR_FoldingChair_02"), TEXT("GR_CampCot_02"),
+		TEXT("GR_SolarArray_02"), TEXT("GR_ChargingStation_02"), TEXT("GR_DroneHardCase_02"), TEXT("GR_FieldRadio_02"),
+		TEXT("GR_BatteryCase_02"), TEXT("GR_FirstAidCase_02"), TEXT("GR_SupplyLocker_02"), TEXT("GR_WaterBarrel_02"),
+		TEXT("GR_WaterFilter_02"), TEXT("GR_SupplyCrate_02"), TEXT("GR_Toolboard_02"), TEXT("GR_ExtensionReel_02"),
+		TEXT("GR_CampStove_02"), TEXT("GR_RainCollector_02"), TEXT("GR_FieldStorageCase_02"), TEXT("GR_BikeRepairStand_02")
+	};
+	for (int32 I = 0; I < 20; ++I)
+	{
+		Place(Camp[I], Origin + FVector((I % 5) * 4.f, 0.f, (I / 5) * 5.f), (I % 2) * 90.f, 1.35f);
+	}
+	static const TCHAR* Ops[] = {
+		TEXT("GR_FO_01"), TEXT("GR_FO_02"), TEXT("GR_FO_03"), TEXT("GR_FO_04"), TEXT("GR_FO_05"),
+		TEXT("GR_FO_06"), TEXT("GR_FO_07"), TEXT("GR_FO_08"), TEXT("GR_FO_09"), TEXT("GR_FO_10")
+	};
+	for (int32 I = 0; I < 10; ++I)
+	{
+		Place(Ops[I], Origin + FVector((I % 5) * 3.f, 0.f, -6.f - (I / 5) * 3.f), 0.f, 1.4f);
+	}
 }

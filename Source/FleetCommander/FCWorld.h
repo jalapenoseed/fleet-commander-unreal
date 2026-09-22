@@ -27,6 +27,11 @@ public:
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UInstancedStaticMeshComponent> RotorMesh;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UInstancedStaticMeshComponent> BeaconMesh;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UInstancedStaticMeshComponent> TracerMesh;
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UInstancedStaticMeshComponent> ScoutMesh;
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UInstancedStaticMeshComponent> RelayMesh;
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UInstancedStaticMeshComponent> CargoMesh;
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UInstancedStaticMeshComponent> UtilityMesh;
+	bool bUnityMeshes = false;
 
 	FFCFleetConfig Config;
 	TArray<FFCDroneState> Drones;
@@ -89,6 +94,7 @@ private:
 	float RotorPhase = 0.f;
 	TArray<int32> Neighbors;
 
+	UInstancedStaticMeshComponent* FrameComp(int32 Index) const;
 	void Step(float Dt);
 	void StepShow(int32 I, float Dt);
 	void StepBattle(int32 I, float Dt);
